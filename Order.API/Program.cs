@@ -1,3 +1,6 @@
+using Hangfire;
+using Hangfire.MemoryStorage;
+using Job;
 using Microsoft.EntityFrameworkCore;
 using Order.API.Context;
 using Order.API.Entities;
@@ -10,6 +13,12 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddHangfire(y => y.UseMemoryStorage());
+
+builder.Services.AddHangfireServer(y => new BackgroundJobServerOptions
+{
+    SchedulePollingInterval = TimeSpan.FromMilliseconds(5000),
+});
 builder.Services.AddDbContext<OrderDbContext>(y => y.UseNpgsql("Host=localhost;Port=5432;Database=OrchestrationOrderAPI;Username=myuser;Password=mypassword;"));
 
 var app = builder.Build();
@@ -17,6 +26,10 @@ var app = builder.Build();
 app.UseSwagger();
 app.UseSwaggerUI();
 
+app.UseHangfireDashboard();
+
+
+RecurringJob.AddOrUpdate<OrderOutboxJob>("orderOutbox", y => y.ExecuteJob(), "*/15 * * * * *");
 
 app.MapPost("order/createorder", async (OrderDbContext orderDbContext) =>
 {
