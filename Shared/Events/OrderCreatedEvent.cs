@@ -2,16 +2,16 @@
 {
     public class OrderCreatedEvent
     {
+        public int Id { get; set; }
+        public ICollection<OrderItem> OrderItems { get; set; }
         public int BuyerId { get; set; }
-        public int MyProperty { get; set; }
-        public List<OrderItem> OrderItems { get; set; }
-        public decimal TotalPrice => OrderItems.Sum(y => y.Count * y.Price);
+        public decimal TotalPrice { get; set; }
     }
     public class OrderItem
     {
         public int Id { get; set; }
         public string Name { get; set; }
-        public int Price { get; set; }
         public int Count { get; set; }
+        public decimal Price { get; set; }
     }
 }

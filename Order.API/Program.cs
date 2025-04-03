@@ -1,9 +1,10 @@
 using Hangfire;
 using Hangfire.MemoryStorage;
-using Job;
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Order.API.Context;
 using Order.API.Entities;
+using Order.API.Job;
 using Shared.Events;
 using System.Text.Json;
 
@@ -14,12 +15,22 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHangfire(y => y.UseMemoryStorage());
-
-builder.Services.AddHangfireServer(y => new BackgroundJobServerOptions
+builder.Services.AddMassTransit(configure =>
 {
-    SchedulePollingInterval = TimeSpan.FromMilliseconds(5000),
+    configure.UsingRabbitMq((context, config) =>
+    {
+        config.Host(builder.Configuration.GetSection("AmqpConf")["Host"], config =>
+        {
+            config.Username(builder.Configuration.GetSection("AmqpConf")["Username"]);
+            config.Password(builder.Configuration.GetSection("AmqpConf")["Password"]);
+
+        });
+
+    });
 });
-builder.Services.AddDbContext<OrderDbContext>(y => y.UseNpgsql("Host=localhost;Port=5432;Database=OrchestrationOrderAPI;Username=myuser;Password=mypassword;"));
+
+builder.Services.AddHangfireServer();
+builder.Services.AddDbContext<OrderDbContext>(y => y.UseNpgsql(builder.Configuration.GetConnectionString("postgre")));
 
 var app = builder.Build();
 
@@ -33,14 +44,16 @@ RecurringJob.AddOrUpdate<OrderOutboxJob>("orderOutbox", y => y.ExecuteJob(), "*/
 
 app.MapPost("order/createorder", async (OrderDbContext orderDbContext) =>
 {
+    var orderItems = new List<Order.API.Entities.OrderItem>()
+    {
+        {new Order.API.Entities.OrderItem{Id=1,Name="Nike Ayakkabý",Price=10,Count=1 }},
+        {new Order.API.Entities.OrderItem{Id=2,Name="Puma Ayakkabý",Price=20,Count=3} }
+    };
     var order = new Order.API.Entities.Order()
     {
         BuyerId = 21,
-        OrderItems = new List<Order.API.Entities.OrderItem>()
-        {
-            {new Order.API.Entities.OrderItem{Id=1,Name="Nike Ayakkabý",Price=10,Count=1 }},
-            {new Order.API.Entities.OrderItem{Id=2,Name="Puma Ayakkabý",Price=20,Count=3} }
-        }
+        OrderItems = orderItems,
+        TotalPrice = orderItems.Sum(y => y.Price * y.Count)
     };
     await orderDbContext.Order.AddAsync(order);
 
@@ -51,7 +64,10 @@ app.MapPost("order/createorder", async (OrderDbContext orderDbContext) =>
         Type = new OrderCreatedEvent().GetType().Name
     });
 
+    await orderDbContext.SaveChangesAsync();
 
 });
+
+
 
 app.Run();

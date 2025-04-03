@@ -5,5 +5,6 @@
         public int Id { get; set; }
         public ICollection<OrderItem> OrderItems { get; set; }
         public int BuyerId { get; set; }
+        public decimal TotalPrice { get; set; }
     }
 }
