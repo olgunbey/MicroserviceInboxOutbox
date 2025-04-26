@@ -28,6 +28,7 @@ namespace Order.API.Job
                 if (orderOutbox.Type == nameof(OrderCreatedEvent))
                 {
                     OrderCreatedEvent orderCreatedEvent = JsonSerializer.Deserialize<OrderCreatedEvent>(orderOutbox.Payload)!;
+                    orderCreatedEvent.IdempotentToken = orderOutbox.IdempotentToken;
                     await _publishEndpoint.Publish(orderCreatedEvent);
 
                 }

@@ -30,7 +30,7 @@ builder.Services.AddMassTransit(configure =>
 });
 
 builder.Services.AddHangfireServer();
-builder.Services.AddDbContext<OrderDbContext>(y => y.UseNpgsql(builder.Configuration.GetConnectionString("postgre")));
+builder.Services.AddDbContext<OrderDbContext>(y => y.UseNpgsql(builder.Configuration.GetConnectionString("order")));
 
 var app = builder.Build();
 
@@ -61,7 +61,8 @@ app.MapPost("order/createorder", async (OrderDbContext orderDbContext) =>
     {
         ProcessedDate = null,
         Payload = JsonSerializer.Serialize(order),
-        Type = new OrderCreatedEvent().GetType().Name
+        Type = new OrderCreatedEvent().GetType().Name,
+        IdempotentToken = Guid.NewGuid(),
     });
 
     await orderDbContext.SaveChangesAsync();

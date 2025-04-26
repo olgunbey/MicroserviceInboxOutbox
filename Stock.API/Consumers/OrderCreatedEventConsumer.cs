@@ -16,13 +16,21 @@ namespace Stock.API.Consumers
         }
         public async Task Consume(ConsumeContext<OrderCreatedEvent> context)
         {
-            _stockDbContext.OrderInbox.Add(new OrderInbox()
-            {
-                Processed = false,
-                Payload = JsonSerializer.Serialize(context.Message)
 
-            });
-            await _stockDbContext.SaveChangesAsync();
+            var result = await _stockDbContext.OrderInbox.Where(y => y.IdempotentToken == context.Message.IdempotentToken).AnyAsync();
+
+            if (!result)
+            {
+                _stockDbContext.OrderInbox.Add(new OrderInbox()
+                {
+                    Processed = false,
+                    Payload = JsonSerializer.Serialize(context.Message),
+                    IdempotentToken = context.Message.IdempotentToken
+
+                });
+                await _stockDbContext.SaveChangesAsync();
+            }
+
 
 
             List<OrderInbox> orderInboxes = await _stockDbContext.OrderInbox
